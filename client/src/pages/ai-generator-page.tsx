@@ -21,7 +21,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+//import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"; // Removed as Tabs are no longer used
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
@@ -39,6 +39,7 @@ const generatorSchema = z.object({
 export default function AIGeneratorPage() {
   const { toast } = useToast();
   const [generatedContent, setGeneratedContent] = useState("");
+  const [contentType, setContentType] = useState<"cv" | "cover-letter">("cv");
 
   const form = useForm({
     resolver: zodResolver(generatorSchema),
@@ -94,8 +95,7 @@ export default function AIGeneratorPage() {
   });
 
   const onSubmit = form.handleSubmit((data) => {
-    const tabValue = document.querySelector('[role="tablist"] [data-state="active"]')?.getAttribute('value');
-    if (tabValue === 'cv') {
+    if (contentType === "cv") {
       generateCVMutation.mutate(data);
     } else {
       generateCoverLetterMutation.mutate(data);
@@ -105,7 +105,7 @@ export default function AIGeneratorPage() {
   return (
     <div className="container mx-auto py-8 max-w-4xl">
       <h1 className="text-3xl font-bold mb-8">AI Document Generator</h1>
-      
+
       <div className="grid gap-8 md:grid-cols-2">
         <div>
           <Card>
@@ -116,35 +116,49 @@ export default function AIGeneratorPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Tabs defaultValue="cv">
-                <TabsList className="grid w-full grid-cols-2 mb-4">
-                  <TabsTrigger value="cv">CV</TabsTrigger>
-                  <TabsTrigger value="cover-letter">Cover Letter</TabsTrigger>
-                </TabsList>
+              <Form {...form}>
+                <form onSubmit={onSubmit} className="space-y-4">
+                  <div className="flex gap-4 mb-6">
+                    <Button
+                      type="button"
+                      variant={contentType === "cv" ? "default" : "outline"}
+                      className="flex-1"
+                      onClick={() => setContentType("cv")}
+                    >
+                      CV
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={contentType === "cover-letter" ? "default" : "outline"}
+                      className="flex-1"
+                      onClick={() => setContentType("cover-letter")}
+                    >
+                      Cover Letter
+                    </Button>
+                  </div>
 
-                <Form {...form}>
-                  <form onSubmit={onSubmit} className="space-y-4">
-                    <FormField
-                      control={form.control}
-                      name="fullName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Full Name</FormLabel>
-                          <FormControl>
-                            <Input {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                  <FormField
+                    control={form.control}
+                    name="fullName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Full Name</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                    <TabsContent value="cover-letter">
+                  {contentType === "cover-letter" && (
+                    <>
                       <FormField
                         control={form.control}
                         name="targetPosition"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Target Position</FormLabel>
+                            <FormLabel>Target Position (Optional)</FormLabel>
                             <FormControl>
                               <Input {...field} />
                             </FormControl>
@@ -158,7 +172,7 @@ export default function AIGeneratorPage() {
                         name="companyName"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Company Name</FormLabel>
+                            <FormLabel>Company Name (Optional)</FormLabel>
                             <FormControl>
                               <Input {...field} />
                             </FormControl>
@@ -166,93 +180,93 @@ export default function AIGeneratorPage() {
                           </FormItem>
                         )}
                       />
-                    </TabsContent>
+                    </>
+                  )}
 
-                    <FormField
-                      control={form.control}
-                      name="experience"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Professional Experience (one per line)</FormLabel>
-                          <FormControl>
-                            <textarea
-                              {...field}
-                              className="w-full min-h-[100px] p-2 border rounded"
-                              placeholder="- Senior Developer at Tech Corp (2020-Present)&#10;- Junior Developer at StartUp Inc (2018-2020)"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                  <FormField
+                    control={form.control}
+                    name="experience"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Professional Experience (one per line)</FormLabel>
+                        <FormControl>
+                          <textarea
+                            {...field}
+                            className="w-full min-h-[100px] p-2 border rounded"
+                            placeholder="- Senior Developer at Tech Corp (2020-Present)&#10;- Junior Developer at StartUp Inc (2018-2020)"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                    <FormField
-                      control={form.control}
-                      name="education"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Education (one per line)</FormLabel>
-                          <FormControl>
-                            <textarea
-                              {...field}
-                              className="w-full min-h-[100px] p-2 border rounded"
-                              placeholder="- Master's in Computer Science&#10;- Bachelor's in Software Engineering"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                  <FormField
+                    control={form.control}
+                    name="education"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Education (one per line)</FormLabel>
+                        <FormControl>
+                          <textarea
+                            {...field}
+                            className="w-full min-h-[100px] p-2 border rounded"
+                            placeholder="- Master's in Computer Science&#10;- Bachelor's in Software Engineering"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                    <FormField
-                      control={form.control}
-                      name="skills"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Skills (one per line)</FormLabel>
-                          <FormControl>
-                            <textarea
-                              {...field}
-                              className="w-full min-h-[100px] p-2 border rounded"
-                              placeholder="- JavaScript&#10;- React&#10;- Node.js"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                  <FormField
+                    control={form.control}
+                    name="skills"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Skills (one per line)</FormLabel>
+                        <FormControl>
+                          <textarea
+                            {...field}
+                            className="w-full min-h-[100px] p-2 border rounded"
+                            placeholder="- JavaScript&#10;- React&#10;- Node.js"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                    <FormField
-                      control={form.control}
-                      name="additionalInfo"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Additional Information</FormLabel>
-                          <FormControl>
-                            <textarea
-                              {...field}
-                              className="w-full min-h-[100px] p-2 border rounded"
-                              placeholder="Any other relevant information..."
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                  <FormField
+                    control={form.control}
+                    name="additionalInfo"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Additional Information (Optional)</FormLabel>
+                        <FormControl>
+                          <textarea
+                            {...field}
+                            className="w-full min-h-[100px] p-2 border rounded"
+                            placeholder="Any other relevant information..."
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                    <Button
-                      type="submit"
-                      className="w-full"
-                      disabled={generateCVMutation.isPending || generateCoverLetterMutation.isPending}
-                    >
-                      {(generateCVMutation.isPending || generateCoverLetterMutation.isPending) && (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      )}
-                      Generate Document
-                    </Button>
-                  </form>
-                </Form>
-              </Tabs>
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={generateCVMutation.isPending || generateCoverLetterMutation.isPending}
+                  >
+                    {(generateCVMutation.isPending || generateCoverLetterMutation.isPending) && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
+                    Generate {contentType === "cv" ? "CV" : "Cover Letter"}
+                  </Button>
+                </form>
+              </Form>
             </CardContent>
           </Card>
         </div>
