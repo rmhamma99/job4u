@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Upload } from "lucide-react";
+import { Loader2, Upload, Copy } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 const generatorSchema = z.object({
@@ -54,15 +54,46 @@ export default function AIGeneratorPage() {
     },
   });
 
-  const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      // Compress image before converting to base64
+      const maxWidth = 800;
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setPhoto(reader.result as string);
+      const img = new Image();
+
+      reader.onload = (e) => {
+        img.src = e.target?.result as string;
       };
+
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth) {
+          height = (maxWidth * height) / width;
+          width = maxWidth;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+
+        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+        setPhoto(compressedBase64);
+      };
+
       reader.readAsDataURL(file);
     }
+  };
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(generatedContent);
+    toast({
+      title: "Copied to clipboard",
+    });
   };
 
   const generateCVMutation = useMutation({
@@ -314,8 +345,20 @@ export default function AIGeneratorPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="whitespace-pre-wrap font-mono text-sm">
-                {generatedContent || "No content generated yet"}
+              <div className="relative">
+                <div className="whitespace-pre-wrap font-mono text-sm bg-muted p-4 rounded-lg">
+                  {generatedContent || "No content generated yet"}
+                </div>
+                {generatedContent && (
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="absolute top-2 right-2"
+                    onClick={copyToClipboard}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>

@@ -5,9 +5,14 @@ import { setupAuth } from "./auth";
 import { insertJobSchema, insertApplicationSchema } from "@shared/schema";
 import { insertInterviewSchema } from "@shared/schema"; // Added import
 import { generateCV, generateCoverLetter } from "./services/ai-generator";
+import express from "express";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);
+
+  // Configure body parser to accept larger payloads
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
   // Jobs API
   app.get("/api/jobs", async (req, res) => {
@@ -190,6 +195,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const cv = await generateCV(req.body);
       res.json({ content: cv });
     } catch (error: any) {
+      console.error("CV Generation Error:", error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -201,6 +207,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const coverLetter = await generateCoverLetter(req.body);
       res.json({ content: coverLetter });
     } catch (error: any) {
+      console.error("Cover Letter Generation Error:", error);
       res.status(500).json({ error: error.message });
     }
   });
