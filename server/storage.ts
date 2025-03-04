@@ -1,8 +1,11 @@
-import { User, InsertUser, Job, Application, insertJobSchema, insertApplicationSchema } from "@shared/schema";
+import { users, jobs, applications } from "@shared/schema";
+import type { User, InsertUser, Job, Application } from "@shared/schema";
+import { eq } from "drizzle-orm";
+import { db, pool } from "./db";
 import session from "express-session";
-import createMemoryStore from "memorystore";
+import connectPg from "connect-pg-simple";
 
-const MemoryStore = createMemoryStore(session);
+const PostgresSessionStore = connectPg(session);
 
 export interface IStorage {
   sessionStore: session.Store;
@@ -10,13 +13,13 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, data: Partial<User>): Promise<User>;
-  
+
   createJob(job: Omit<Job, "id" | "createdAt">): Promise<Job>;
   getJob(id: number): Promise<Job | undefined>;
   getJobs(filters?: Partial<Job>): Promise<Job[]>;
   updateJob(id: number, data: Partial<Job>): Promise<Job>;
   deleteJob(id: number): Promise<void>;
-  
+
   createApplication(application: Omit<Application, "id" | "createdAt">): Promise<Application>;
   getApplication(id: number): Promise<Application | undefined>;
   getUserApplications(userId: number): Promise<Application[]>;
@@ -24,117 +27,114 @@ export interface IStorage {
   updateApplication(id: number, data: Partial<Application>): Promise<Application>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private jobs: Map<number, Job>;
-  private applications: Map<number, Application>;
+export class DatabaseStorage implements IStorage {
   sessionStore: session.Store;
-  private userId: number;
-  private jobId: number;
-  private applicationId: number;
 
   constructor() {
-    this.users = new Map();
-    this.jobs = new Map();
-    this.applications = new Map();
-    this.userId = 1;
-    this.jobId = 1;
-    this.applicationId = 1;
-    this.sessionStore = new MemoryStore({
-      checkPeriod: 86400000
+    this.sessionStore = new PostgresSessionStore({
+      pool,
+      createTableIfMissing: true,
     });
   }
 
   async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username
-    );
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.userId++;
-    const user = { ...insertUser, id };
-    this.users.set(id, user);
+    const [user] = await db.insert(users).values({
+      ...insertUser,
+      skills: [],
+      experience: null,
+    }).returning();
     return user;
   }
 
   async updateUser(id: number, data: Partial<User>): Promise<User> {
-    const user = await this.getUser(id);
-    if (!user) throw new Error("User not found");
-    const updated = { ...user, ...data };
-    this.users.set(id, updated);
-    return updated;
+    const [user] = await db
+      .update(users)
+      .set(data)
+      .where(eq(users.id, id))
+      .returning();
+    return user;
   }
 
   async createJob(job: Omit<Job, "id" | "createdAt">): Promise<Job> {
-    const id = this.jobId++;
-    const newJob = { ...job, id, createdAt: new Date() };
-    this.jobs.set(id, newJob);
+    const [newJob] = await db
+      .insert(jobs)
+      .values(job)
+      .returning();
     return newJob;
   }
 
   async getJob(id: number): Promise<Job | undefined> {
-    return this.jobs.get(id);
+    const [job] = await db.select().from(jobs).where(eq(jobs.id, id));
+    return job;
   }
 
   async getJobs(filters?: Partial<Job>): Promise<Job[]> {
-    let jobs = Array.from(this.jobs.values());
+    let query = db.select().from(jobs);
+
     if (filters) {
-      jobs = jobs.filter(job => 
-        Object.entries(filters).every(([key, value]) => 
-          job[key as keyof Job] === value
-        )
+      const conditions = Object.entries(filters).map(([key, value]) => 
+        eq(jobs[key as keyof typeof jobs], value)
       );
+      if (conditions.length > 0) {
+        query = query.where(conditions[0]); 
+      }
     }
-    return jobs;
+
+    return await query;
   }
 
   async updateJob(id: number, data: Partial<Job>): Promise<Job> {
-    const job = await this.getJob(id);
-    if (!job) throw new Error("Job not found");
-    const updated = { ...job, ...data };
-    this.jobs.set(id, updated);
-    return updated;
+    const [job] = await db
+      .update(jobs)
+      .set(data)
+      .where(eq(jobs.id, id))
+      .returning();
+    return job;
   }
 
   async deleteJob(id: number): Promise<void> {
-    this.jobs.delete(id);
+    await db.delete(jobs).where(eq(jobs.id, id));
   }
 
   async createApplication(application: Omit<Application, "id" | "createdAt">): Promise<Application> {
-    const id = this.applicationId++;
-    const newApplication = { ...application, id, createdAt: new Date() };
-    this.applications.set(id, newApplication);
+    const [newApplication] = await db
+      .insert(applications)
+      .values(application)
+      .returning();
     return newApplication;
   }
 
   async getApplication(id: number): Promise<Application | undefined> {
-    return this.applications.get(id);
+    const [application] = await db.select().from(applications).where(eq(applications.id, id));
+    return application;
   }
 
   async getUserApplications(userId: number): Promise<Application[]> {
-    return Array.from(this.applications.values()).filter(
-      app => app.userId === userId
-    );
+    return await db.select().from(applications).where(eq(applications.userId, userId));
   }
 
   async getJobApplications(jobId: number): Promise<Application[]> {
-    return Array.from(this.applications.values()).filter(
-      app => app.jobId === jobId
-    );
+    return await db.select().from(applications).where(eq(applications.jobId, jobId));
   }
 
   async updateApplication(id: number, data: Partial<Application>): Promise<Application> {
-    const application = await this.getApplication(id);
-    if (!application) throw new Error("Application not found");
-    const updated = { ...application, ...data };
-    this.applications.set(id, updated);
-    return updated;
+    const [application] = await db
+      .update(applications)
+      .set(data)
+      .where(eq(applications.id, id))
+      .returning();
+    return application;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
