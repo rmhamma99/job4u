@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth } from "./auth";
 import { insertJobSchema, insertApplicationSchema } from "@shared/schema";
+import { insertInterviewSchema } from "@shared/schema"; // Added import
 
 export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);
@@ -79,19 +80,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/applications", async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
 
-    const applications = req.user.role === "employer" 
+    const applications = req.user.role === "employer"
       ? await storage.getJobApplications(parseInt(req.query.jobId as string))
       : await storage.getUserApplications(req.user.id);
-    
+
     res.json(applications);
   });
 
   app.put("/api/applications/:id", async (req, res) => {
     const application = await storage.getApplication(parseInt(req.params.id));
     if (!application) return res.status(404).send("Application not found");
-    
+
     if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
-    
+
     const job = await storage.getJob(application.jobId);
     if (!job) return res.status(404).send("Job not found");
 
@@ -104,6 +105,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     const updated = await storage.updateApplication(application.id, req.body);
+    res.json(updated);
+  });
+
+  // Interview API
+  app.post("/api/applications/:id/interview", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
+
+    const application = await storage.getApplication(parseInt(req.params.id));
+    if (!application) return res.status(404).send("Application not found");
+
+    const job = await storage.getJob(application.jobId);
+    if (!job) return res.status(404).send("Job not found");
+
+    // Only employer who posted the job can schedule interviews
+    if (req.user.role !== "employer" || job.employerId !== req.user.id) {
+      return res.status(403).send("Unauthorized");
+    }
+
+    const parsed = insertInterviewSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json(parsed.error);
+
+    const interview = await storage.createInterview({
+      ...parsed.data,
+      applicationId: application.id
+    });
+    res.status(201).json(interview);
+  });
+
+  app.get("/api/applications/:id/interviews", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
+
+    const application = await storage.getApplication(parseInt(req.params.id));
+    if (!application) return res.status(404).send("Application not found");
+
+    const job = await storage.getJob(application.jobId);
+    if (!job) return res.status(404).send("Job not found");
+
+    // Only the employer who posted the job or the applicant can view interviews
+    if (!(
+      (req.user.role === "employer" && job.employerId === req.user.id) ||
+      (req.user.role === "jobseeker" && application.userId === req.user.id)
+    )) {
+      return res.status(403).send("Unauthorized");
+    }
+
+    const interviews = await storage.getApplicationInterviews(application.id);
+    res.json(interviews);
+  });
+
+  app.put("/api/interviews/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
+
+    const interview = await storage.getInterview(parseInt(req.params.id));
+    if (!interview) return res.status(404).send("Interview not found");
+
+    const application = await storage.getApplication(interview.applicationId);
+    if (!application) return res.status(404).send("Application not found");
+
+    const job = await storage.getJob(application.jobId);
+    if (!job) return res.status(404).send("Job not found");
+
+    // Only the employer who posted the job can update interviews
+    if (req.user.role !== "employer" || job.employerId !== req.user.id) {
+      return res.status(403).send("Unauthorized");
+    }
+
+    const updated = await storage.updateInterview(interview.id, req.body);
     res.json(updated);
   });
 

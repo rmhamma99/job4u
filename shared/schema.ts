@@ -39,6 +39,18 @@ export const applications = pgTable("applications", {
   createdAt: timestamp("created_at").defaultNow()
 });
 
+export const interviews = pgTable("interviews", {
+  id: serial("id").primaryKey(),
+  applicationId: integer("application_id").notNull(),
+  scheduledFor: timestamp("scheduled_for").notNull(),
+  duration: integer("duration").notNull(),
+  status: text("status").notNull().default("scheduled"),
+  roomId: text("room_id").notNull(),
+  recordingUrl: text("recording_url"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow()
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -63,7 +75,16 @@ export const insertApplicationSchema = createInsertSchema(applications).pick({
   coverLetter: true
 });
 
+export const insertInterviewSchema = createInsertSchema(interviews).pick({
+  applicationId: true,
+  scheduledFor: true,
+  duration: true,
+  roomId: true
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type Job = typeof jobs.$inferSelect;
 export type Application = typeof applications.$inferSelect;
+export type Interview = typeof interviews.$inferSelect;
+export type InsertInterview = z.infer<typeof insertInterviewSchema>;

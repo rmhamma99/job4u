@@ -1,5 +1,5 @@
-import { users, jobs, applications } from "@shared/schema";
-import type { User, InsertUser, Job, Application } from "@shared/schema";
+import { users, jobs, applications, interviews } from "@shared/schema";
+import type { User, InsertUser, Job, Application, Interview } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { db, pool } from "./db";
 import session from "express-session";
@@ -25,6 +25,11 @@ export interface IStorage {
   getUserApplications(userId: number): Promise<Application[]>;
   getJobApplications(jobId: number): Promise<Application[]>;
   updateApplication(id: number, data: Partial<Application>): Promise<Application>;
+
+  createInterview(interview: Omit<Interview, "id" | "createdAt">): Promise<Interview>;
+  getInterview(id: number): Promise<Interview | undefined>;
+  getApplicationInterviews(applicationId: number): Promise<Interview[]>;
+  updateInterview(id: number, data: Partial<Interview>): Promise<Interview>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -82,11 +87,11 @@ export class DatabaseStorage implements IStorage {
     let query = db.select().from(jobs);
 
     if (filters) {
-      const conditions = Object.entries(filters).map(([key, value]) => 
+      const conditions = Object.entries(filters).map(([key, value]) =>
         eq(jobs[key as keyof typeof jobs], value)
       );
       if (conditions.length > 0) {
-        query = query.where(conditions[0]); 
+        query = query.where(conditions[0]);
       }
     }
 
@@ -134,6 +139,32 @@ export class DatabaseStorage implements IStorage {
       .where(eq(applications.id, id))
       .returning();
     return application;
+  }
+
+  async createInterview(interview: Omit<Interview, "id" | "createdAt">): Promise<Interview> {
+    const [newInterview] = await db
+      .insert(interviews)
+      .values(interview)
+      .returning();
+    return newInterview;
+  }
+
+  async getInterview(id: number): Promise<Interview | undefined> {
+    const [interview] = await db.select().from(interviews).where(eq(interviews.id, id));
+    return interview;
+  }
+
+  async getApplicationInterviews(applicationId: number): Promise<Interview[]> {
+    return await db.select().from(interviews).where(eq(interviews.applicationId, applicationId));
+  }
+
+  async updateInterview(id: number, data: Partial<Interview>): Promise<Interview> {
+    const [interview] = await db
+      .update(interviews)
+      .set(data)
+      .where(eq(interviews.id, id))
+      .returning();
+    return interview;
   }
 }
 
