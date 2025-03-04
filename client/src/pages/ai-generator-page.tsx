@@ -21,9 +21,8 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-//import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"; // Removed as Tabs are no longer used
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, Upload } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 const generatorSchema = z.object({
@@ -40,6 +39,7 @@ export default function AIGeneratorPage() {
   const { toast } = useToast();
   const [generatedContent, setGeneratedContent] = useState("");
   const [contentType, setContentType] = useState<"cv" | "cover-letter">("cv");
+  const [photo, setPhoto] = useState<string | null>(null);
 
   const form = useForm({
     resolver: zodResolver(generatorSchema),
@@ -54,9 +54,20 @@ export default function AIGeneratorPage() {
     },
   });
 
+  const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPhoto(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const generateCVMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await apiRequest("POST", "/api/generate/cv", data);
+      const res = await apiRequest("POST", "/api/generate/cv", { ...data, photoBase64: photo });
       return res.json();
     },
     onSuccess: (data) => {
@@ -136,6 +147,29 @@ export default function AIGeneratorPage() {
                       Cover Letter
                     </Button>
                   </div>
+
+                  {contentType === "cv" && (
+                    <div className="mb-4">
+                      <FormLabel>Photo (Optional)</FormLabel>
+                      <div className="mt-2">
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          onChange={handlePhotoChange}
+                          className="cursor-pointer"
+                        />
+                      </div>
+                      {photo && (
+                        <div className="mt-2">
+                          <img
+                            src={photo}
+                            alt="Preview"
+                            className="w-24 h-24 object-cover rounded"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <FormField
                     control={form.control}
