@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { setupAuth } from "./auth";
 import { insertJobSchema, insertApplicationSchema } from "@shared/schema";
 import { insertInterviewSchema } from "@shared/schema"; // Added import
+import { generateCV, generateCoverLetter } from "./services/ai-generator";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);
@@ -180,6 +181,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
     const updated = await storage.updateUser(req.user.id, req.body);
     res.json(updated);
+  });
+
+  app.post("/api/generate/cv", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
+
+    try {
+      const cv = await generateCV(req.body);
+      res.json({ content: cv });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/generate/cover-letter", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
+
+    try {
+      const coverLetter = await generateCoverLetter(req.body);
+      res.json({ content: coverLetter });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
   });
 
   const httpServer = createServer(app);

@@ -18,6 +18,7 @@ export default function Navigation() {
   const navItems = [
     { href: "/", label: "Dashboard" },
     { href: "/jobs", label: "Jobs" },
+    { href: "/ai-generator", label: "AI Generator" },
     { href: "/profile", label: "Profile" },
   ];
 

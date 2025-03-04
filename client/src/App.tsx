@@ -11,6 +11,7 @@ import JobsPage from "@/pages/jobs-page";
 import ProfilePage from "@/pages/profile-page";
 import NotFound from "@/pages/not-found";
 import Navigation from "@/components/navigation";
+import AIGeneratorPage from "@/pages/ai-generator-page";
 
 function Router() {
   return (
@@ -19,6 +20,7 @@ function Router() {
       <ProtectedRoute path="/" component={DashboardPage} />
       <ProtectedRoute path="/jobs" component={JobsPage} />
       <ProtectedRoute path="/profile" component={ProfilePage} />
+      <ProtectedRoute path="/ai-generator" component={AIGeneratorPage} />
       <Route component={NotFound} />
     </Switch>
   );
